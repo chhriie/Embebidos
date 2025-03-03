@@ -19,8 +19,6 @@ float ValueTemperatura;
 float ValueHumedad;
 int ValueLuz;
 
-
-
 void readtemphumfunct (void);
 void readlightfunct (void);
 void toggleLED (void);
@@ -33,17 +31,13 @@ void Func_LUZ_Fin (void);
 void Func_ALARM_Init (void);
 void Func_ALARM_Fin (void);
 
-
-
 // Crear tareas asíncronas
 AsyncTask readTempTask(2500, true, readtemphumfunct);    // Leer temperatura cada 2500ms
 AsyncTask timeOutTask(5000, false, Timeout);
 //AsyncTask readHumedTask(3200, true, readhumedfunct);  // Leer humedad cada 3200ms
 AsyncTask readLightTask(1500, true, readlightfunct);  // Leer luz cada 1600ms
 AsyncTask displayDataTask(2000, true, DisplayData);   // Mostrar datos cada 2000ms
-AsyncTask LEDTask(1100, true, toggleLED);     // Encender/apagar LED azul cada 1100ms (700ms ON, 400ms OFF)
-
-
+AsyncTask LEDTask(1100, true, toggleLED);     // Encender/apagar LED cada 1100ms (700ms ON, 400ms OFF)
 
 
 // State Alias
@@ -75,8 +69,8 @@ Input input;
 void setupStateMachine()
 { 
   //A: Ambiental B: Luz C: Alarma
-	// Se crean todas las transisiones
-	stateMachine.AddTransition(PosicionA, PosicionB, []() { return input == Sign_T; });  //visionar transisión
+	// Se crean todas las transiciones
+	stateMachine.AddTransition(PosicionA, PosicionB, []() { return input == Sign_T; });  //visionar transición
 	stateMachine.AddTransition(PosicionB, PosicionA, []() { return input ==Sign_T; });
 	stateMachine.AddTransition(PosicionB, PosicionC, []() { return input == Sign_L; });
 	stateMachine.AddTransition(PosicionC, PosicionA, []() { return input == Sign_T; });
