@@ -6,7 +6,6 @@
 #define DHTPIN 4        // Pin del sensor DHT11
 #define LDRPIN 34       // Pin analógico para el sensor de luz (LDR)
 #define LED_RED 25
-#define LED_GREEN 26
 
 // Selección del tipo de sensor DHT
 #define DHTTYPE DHT11  
@@ -14,12 +13,14 @@
 // Inicializar DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-// Variables para almacenar los valores
 float ValueTemperatura;
 float ValueHumedad;
 int ValueLuz;
+unsigned long previousMillis = 0;
+bool ledState = false;
 
-void readtemphumfunct (void);
+void readtempfunct (void);
+void readhumedfunct (void);
 void readlightfunct (void);
 void toggleLED (void);
 void DisplayData (void);
@@ -31,12 +32,10 @@ void Func_LUZ_Fin (void);
 void Func_ALARM_Init (void);
 void Func_ALARM_Fin (void);
 
-
-
 // Crear tareas asíncronas
-AsyncTask readTempTask(2500, true, readtemphumfunct);    // Leer temperatura cada 2500ms
+AsyncTask readTempTask(2500, true, readtempfunct);    // Leer temperatura cada 2500ms
 AsyncTask timeOutTask(5000, false, Timeout);
-//AsyncTask readHumedTask(3200, true, readhumedfunct);  // Leer humedad cada 3200ms
+AsyncTask readHumedTask(2500, true, readhumedfunct);  // Leer humedad cada 3200ms
 AsyncTask readLightTask(1500, true, readlightfunct);  // Leer luz cada 1600ms
 AsyncTask displayDataTask(2000, true, DisplayData);   // Mostrar datos cada 2000ms
 AsyncTask LEDTask(1100, true, toggleLED);     // Encender/apagar LED azul cada 1100ms (700ms ON, 400ms OFF)
@@ -44,10 +43,11 @@ AsyncTask LEDTask(1100, true, toggleLED);     // Encender/apagar LED azul cada 1
 // State Alias
 enum State //enumera, tipo de datos definido por el usuario
 {
-	PosicionA = 0,
-	PosicionB = 1,
-	PosicionC = 2,
+	MONIT_AMB = 0,
+	MONIT_LUZ = 1,
+	ALARMA = 2,
 };
+
 // Input Alias
 enum Input  //enumersción de entrada
 {
@@ -55,11 +55,10 @@ enum Input  //enumersción de entrada
 	Sign_L = 1,
 	Sign_H = 2,
 	Unknown = 3,
-  
 };
 
 // Create new StateMachine
-StateMachine stateMachine(3, 5); //instancia, recibe instancias (numero de estados, numero de transiciones)
+StateMachine stateMachine(3, 5); 
 
 // Stores last user input
 Input input;  
@@ -68,39 +67,40 @@ Input input;
 void setupStateMachine()
 { 
   //A: Ambiental B: Luz C: Alarma
-	stateMachine.AddTransition(PosicionA, PosicionB, []() { return input == Sign_T; });  //visionar transición
-	stateMachine.AddTransition(PosicionB, PosicionA, []() { return input ==Sign_T; });
-	stateMachine.AddTransition(PosicionB, PosicionC, []() { return input == Sign_L; });
-	stateMachine.AddTransition(PosicionC, PosicionA, []() { return input == Sign_T; });
-  stateMachine.AddTransition(PosicionA, PosicionC, []() { return input == Sign_H; });
-
-
+	// Se crean todas las transisiones
+	stateMachine.AddTransition(MONIT_AMB, MONIT_LUZ, []() { return input == Sign_T; }); 
+	stateMachine.AddTransition(MONIT_LUZ, MONIT_AMB, []() { return input ==Sign_T; });
+	stateMachine.AddTransition(MONIT_LUZ, ALARMA, []() { return input == Sign_L; });
+	stateMachine.AddTransition(ALARMA, MONIT_AMB, []() { return input == Sign_T; });
+  stateMachine.AddTransition(MONIT_AMB, ALARMA, []() { return input == Sign_H; });
 
 	// Add actions
-	stateMachine.SetOnEntering(PosicionA, Func_AMB_Init);
-	stateMachine.SetOnEntering(PosicionB, Func_LUZ_Init);
-	stateMachine.SetOnEntering(PosicionC, Func_ALARM_Init);
+	stateMachine.SetOnEntering(MONIT_AMB, Func_AMB_Init);
+	stateMachine.SetOnEntering(MONIT_LUZ, Func_LUZ_Init);
+	stateMachine.SetOnEntering(ALARMA, Func_ALARM_Init);
 
-	stateMachine.SetOnLeaving(PosicionA, Func_AMB_Fin);
-	stateMachine.SetOnLeaving(PosicionB, Func_LUZ_Fin);
-	stateMachine.SetOnLeaving(PosicionC, Func_ALARM_Fin);
+	stateMachine.SetOnLeaving(MONIT_AMB, Func_AMB_Fin);
+	stateMachine.SetOnLeaving(MONIT_LUZ, Func_LUZ_Fin);
+	stateMachine.SetOnLeaving(ALARMA, Func_ALARM_Fin);
 }
 
 void Func_AMB_Init (void){
-  timeOutTask.Stop();
+  digitalWrite(LED_BLUE, LOW);
+  digitalWrite(LED_RED, LOW);
   Serial.println("Func_AMB_Init");
   readTempTask.Start();
+  readHumedTask.Start();
   timeOutTask.Start();
 }
 
 void Func_AMB_Fin (void){
   Serial.println("Func_AMB_Fin");
   readTempTask.Stop();
+  readHumedTask.Stop();
   timeOutTask.Stop();
 }
 
 void Func_LUZ_Init (void){
-  timeOutTask.Stop();
   Serial.println("Func_LUZ_Init");
   readLightTask.Start();
   timeOutTask.SetIntervalMillis(3000);
@@ -132,14 +132,13 @@ void setup()
   //delay(1000);
 	Serial.println("Starting State Machine...");
 	setupStateMachine();
+  dht.begin();
 	Serial.println("Start Machine Started");
   pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_RED, OUTPUT);
-  pinMode(LED_GREEN, OUTPUT);
 
 	// Initial state
-  // Quien se activa
-	stateMachine.SetState(PosicionA, false, true);
+	stateMachine.SetState(MONIT_AMB, false, true);
   displayDataTask.Start();
 }
 
@@ -147,10 +146,16 @@ void loop()
 {
 	// Read user input
 	input = static_cast<Input>(readInput());
+  readTempTask.Update();   
+  timeOutTask.Update();
+  readHumedTask.Update();  
+  readLightTask.Update();  
+  displayDataTask.Update();
+  LEDTask.Update();     
 
 	// Update State Machine
 	stateMachine.Update();
-  displayDataTask.Update();
+  input = Unknown; 
 }
 
 // Auxiliar function that reads the user input
@@ -167,7 +172,6 @@ int readInput()
 			case 'R': currentInput = Input::Sign_T; break;
 			case 'A': currentInput = Input::Sign_L; break;
 			case 'D': currentInput = Input::Sign_H; break;
-      //case 'P': currentInput = Input::Sign__T; break;
 			default: break;
 		}
 	}
@@ -175,20 +179,22 @@ int readInput()
 	return currentInput;
 }
 
-
-
 // Leer temperatura
-void readtemphumfunct (void) {
-  ValueTemperatura = dht.readTemperature();
+void readhumedfunct (void) {
   ValueHumedad = dht.readHumidity();
-
-  if((ValueTemperatura>24) && (ValueHumedad>70)){
+  if(ValueHumedad > 70){
     input = Sign_H;
     Serial.println("Cambio a estado Sign_H");
   }
 }
 
-
+void readtempfunct (void) {
+  ValueTemperatura = dht.readTemperature();
+  if((ValueTemperatura < 24 || ValueTemperatura > 35)){
+    input = Sign_H;
+    Serial.println("Cambio a estado Sign_H");
+  }
+}
 // Leer luz (sensor LDR)
 void readlightfunct (void) {
   ValueLuz = analogRead(LDRPIN);
@@ -199,22 +205,36 @@ void readlightfunct (void) {
 }
 
 void toggleLED (void) {
+  unsigned long currentMillis = millis();
    // Apagar todos los LEDs antes de encender el correcto
    digitalWrite(LED_BLUE, LOW);
    digitalWrite(LED_RED, LOW);
-   digitalWrite(LED_GREEN, LOW);
 
    if (ValueLuz > 500) {
-     digitalWrite(LED_BLUE, HIGH);  // Luz mayor a 500 → LED azul
+     if (ledState && (currentMillis - previousMillis >= 700)) {
+        digitalWrite(LED_BLUE, LOW);  // Apagar LED después de 700ms encendido
+        ledState = false;
+        previousMillis = currentMillis;
+    } 
+    else if (!ledState && (currentMillis - previousMillis >= 400)) {
+        digitalWrite(LED_BLUE, HIGH); // Encender LED después de 400ms apagado
+        ledState = true;
+        previousMillis = currentMillis;
+    }
    } 
-   else if (ValueTemperatura > 24) {
-     digitalWrite(LED_GREEN, HIGH); // Temp > 24 → LED verde
+    else if((ValueTemperatura < 24 || ValueTemperatura > 35) || (ValueHumedad > 70)){
+     if (ledState && (currentMillis - previousMillis >= 700)) {
+        digitalWrite(LED_RED, LOW);  // Apagar LED después de 700ms encendido
+        ledState = false;
+        previousMillis = currentMillis;
+    } 
+    else if (!ledState && (currentMillis - previousMillis >= 400)) {
+        digitalWrite(LED_RED, HIGH); // Encender LED después de 400ms apagado
+        ledState = true;
+        previousMillis = currentMillis;
+    }
    } 
-   else if (ValueHumedad > 70) {
-     digitalWrite(LED_RED, HIGH);   // Humedad > 70 → LED rojo
-   }
 }
-
 
 void DisplayData (void) {
   Serial.print(F("Humedad: "));
@@ -228,27 +248,3 @@ void DisplayData (void) {
 void Timeout (void){
   input = Sign_T;
 }
-
-// Auxiliar output functions that show the state debug
-void outputA()
-{
-	Serial.println("A   B   C");
-	Serial.println("X        ");
-	Serial.println();
-}
-
-void outputB()
-{
-	Serial.println("A   B   C");
-	Serial.println("    X    ");
-	Serial.println();
-}
-
-void outputC()
-{
-	Serial.println("A   B   C");
-	Serial.println("        X");
-	Serial.println();
-}
-
-
