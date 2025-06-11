@@ -10,7 +10,7 @@ Este repositorio contiene el desarrollo de un sistema de monitoreo y control par
 ├── nodoEdge/                  # Nodo central encargado de procesar y almacenar datos
 │   ├── nodoEdge.ino           # Código del nodo central
 │   └── data/
-│       └── config.json        # Configuración del nodo edge (por ejemplo, redes, claves)
+│       └── config.json        # Configuración del nodo edge 
 ├── sensores/                  # Código de los nodos sensores (sensores.ino)
 ├── datos/                     # Datos generados por los sensores y almacenados en la microSD
 │   └── ... (archivos CSV o TXT)
