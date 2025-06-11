@@ -5,7 +5,7 @@
  * Este programa recibe comandos mediante ESP-NOW y ejecuta tareas
  * para activar motores y un LED, evitando activaciones múltiples el mismo día.
  * 
- * @author Briyth Guacas y Karol Palechor
+ * @author Briyith Guacas y Karol Palechor
  * @date 2025-06-11
  */
 
