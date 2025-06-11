@@ -1,4 +1,4 @@
-# Proyecto Invernadero Inteligente
+# Proyecto Invernadero
 
 Este repositorio contiene el desarrollo de un sistema de monitoreo y control para un **invernadero inteligente**, el cual recopila datos de sensores, los transmite a un nodo central (nodo edge) y acciona dispositivos deacuerdo a ciertas condiciones.
 
