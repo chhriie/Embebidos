@@ -1,6 +1,6 @@
 # Proyecto Invernadero
 
-Este repositorio contiene el desarrollo de un sistema de monitoreo y control para un **invernadero inteligente**, el cual recopila datos de sensores, los transmite a un nodo central (nodo edge) y acciona dispositivos deacuerdo a ciertas condiciones.
+Este repositorio contiene el desarrollo de un sistema de monitoreo y control para un **invernadero**, el cual recopila datos de sensores, los transmite a un nodo central (nodo edge) y acciona dispositivos deacuerdo a ciertas condiciones por medio del uso de esp32.
 
 ## Estructura del proyecto
 
