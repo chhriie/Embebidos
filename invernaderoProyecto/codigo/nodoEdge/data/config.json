@@ -1,0 +1,31 @@
+{
+  "devices": {
+    "XX:XX:XX:XX:XX:XX": {
+      "temperaturaS": "float",
+      "temperatura": "float",
+      "humedad": "float",
+      "luz": "int",
+      "conditions": {
+        "temperatura": { "min": 20, "max": 30 },
+        "humedad": { "min": 60, "max": 80 },
+        "luz": { "min": 0, "max": 2000 },
+        "temperaturaS": { "min": 20, "max": 30 }
+      }
+    }
+  },
+  
+  "actuadores": {
+    "direccion_mac": "XX:XX:XX:XX:XX:XX",
+    "limites_hora": {
+      "motorA": {"start": "07:00", "end": "07:29"},
+      "motorB": {"start": "10:30", "end": "10:59"},
+      "led": {"start": "16:00", "end": "16:59"}
+    },
+    "estructura_envio": {
+      "activateMotorA": true,
+      "activateMotorB": true,
+      "activateLED": true,
+      "daySent": 0
+    }
+  }
+}
